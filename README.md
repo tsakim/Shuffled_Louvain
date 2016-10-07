@@ -47,4 +47,4 @@ shulou.shuffled_comdet(G, n, parallel=False)
 ```
 
 ---
-Copyright (C) 2016 F. Saracco/M. Straka
+Copyright (C) 2016 Fabio Saracco, Mika J. Straka
