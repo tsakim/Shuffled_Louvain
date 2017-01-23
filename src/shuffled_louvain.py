@@ -16,9 +16,9 @@ Description:
 
 Usage:
     Given an igraph.Graph object ``G``, we want to run ``n`` community
-    detections using different permutations of the node sequence of the graph
-    in order to find the vertex clustering which returns the maximum
-    modularity.  
+    detections in order to find the vertex clustering which returns the maximum
+    modularity.  Each iteration is run on a different permutations of the node
+    sequence of the graph.
     
     To import the module, use::
 
