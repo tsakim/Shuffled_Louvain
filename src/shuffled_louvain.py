@@ -10,32 +10,41 @@ Authors:
 
 Description:
     Louvain community detection with shuffled node sequence are performed and
-    the community structure with the highest modularity score are returned.
+    the community structure with the highest modularity score is returned.
     The igraph.community_multilevel algorithm is used for the community
     detection.
 
 Usage:
-    Be G the igraph.Graph object on which we want to perform a community
-    detection and be n the number of iteration we want to run in order to find
-    the maximaml modularity.
+    Given an igraph.Graph object ``G``, we want to run ``n`` community
+    detections using different permutations of the node sequence of the graph
+    in order to find the vertex clustering which returns the maximum
+    modularity.  
+    
+    To import the module, use::
 
-    Import module:
-        $ import shuffled_louvain as shulou
+        >>> from src import shuffled_louvain as shulou
 
-    Run n-times the community detection:
-        $ vc = shulou.shuffled_comdet(G, n)
+    and run ``n``-times the community detection:
 
-    The membership list of the detected communityes can be accessed with
-        # vc.membership
+        >>> vc = shulou.shuffled_comdet(G, n)
 
-NB Parallel computation:
-    The module uses the Python multiprocessing package and the calculation of
-    the community structures is executed in parallel. The number of parallel
-    processes depends on the number of CPUs of the work station, see variable
-    "numprocs" in method "shuffled_comdet".
+    The membership list of the detected communities can be accessed with::
 
-    If the calculation should NOT be performed in parallel, use
-        $ shulou.shuffled_comdet(G, n, parallel=False)
+        >>> vc.membership
+
+.. note::
+    
+    **Parallel computation**
+    Since the community detection can be computationally demanding, the module
+    uses the Python `multiprocessing
+    <https://docs.python.org/2/library/multiprocessing.html>`_ package to
+    execute the computation in parallel.  The number of parallel processes
+    depends on the number of CPUs of the work station ( see variable
+    ``numprocs`` in method :func:`shuffled_comdet`).
+
+    If the calculation should **not**be performed in parallel, use::
+
+        >>> shulou.shuffled_comdet(G, n, parallel=False)
 """
 
 import multiprocessing as mp
@@ -48,18 +57,23 @@ output_queue = mp.Queue()
 
 
 def shuffled_comdet(g, numiter, parallel=True):
-    """Run 'numiter' Louvain community detections of the graph g in parallel
-    with reshuffled node sequence. Return the Vertext clustering object with the
-    highest modularity. The number of processes which run in parallel are
-    determined by the number of CPU of the work station (see below).
+    """Run Louvain community detections with shuffled node sequence.
 
-    :param g: igraph.Graph object
-    :param numiter: number of reshuffled community detections we want to run
+    Perform ``numiter`` Louvain community detections of the input graph ``g``
+    and return the VertexClustering object with the highest modularity score.
+    The community detections are performed on randomly shuffled node sequence
+    and can be run in parallel. The number of processes is determined by the
+    number of CPU of the work station (see below).
+
+    :param g: graph for community detection
+    :type g: igraph.Graph
+    :param numiter: number of reshuffled community detections to run
     :type numiter: int
-    :param parallel: if True, the numiter community detections are performed
-                in parallel. If False, only one worker executes the jobs.
-    :return: igraph.VertexClustering based on community detection with highest
-                modularity
+    :param parallel: if ``True``, the numiter community detections are performed
+                in parallel, otherwise in sequence
+    :type parallel: bool
+    :returns: VertexClustering with highest modularity score
+    :rtype: igraph.VertexClustering     
     """
     # get edgelist and nodelist from input graph
     edgelist = [g.es[i].tuple for i in range(len(g.es))]
@@ -68,7 +82,7 @@ def shuffled_comdet(g, numiter, parallel=True):
     # run first community detection:
     loug = g.community_multilevel(return_levels=False)
     mod = g.modularity(loug)
-    print('Modularity of the original order = ', mod)
+    # print('Modularity of the original order = ', mod)
 
     # create variables which are shared among all the parallel workers
     mod_res = mp.Value('d', mod)
@@ -84,24 +98,23 @@ def shuffled_comdet(g, numiter, parallel=True):
     p_inqueue = mp.Process(target=add2inqueue, args=(numiter - 1, numprocs))
     p_outqueue = mp.Process(target=outqueue2res,
                             args=(g, numprocs, mod_res, memship_res))
-    # start worker processes
+
+    # create worker processes
     ps = [mp.Process(target=comdet_worker, args=(nodelist, edgelist))
           for i in range(numprocs)]
 
     # start queues
     p_inqueue.start()
     p_outqueue.start()
+
     # start workers
     for p in ps:
         p.start()
-        # print '......PID:', p.pid
 
-    # end inqueue process once it is done
+    # end processes once they are done
     p_inqueue.join()
-    # end worker processes once they are done
     for p in ps:
         p.join()
-    # end outqueue process once it is done
     p_outqueue.join()
 
     print 'Done.'
@@ -109,7 +122,7 @@ def shuffled_comdet(g, numiter, parallel=True):
 
 
 def add2inqueue(n, nprocs):
-    """Add input parameters to queue which will be used by workers.
+    """Add input parameters to queue to be processed by workers.
 
     :param n: number of tasks
     :type n: int
